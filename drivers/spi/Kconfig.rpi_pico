@@ -9,3 +9,31 @@ config SPI_RPI_PICO_PIO
 	select PICOSDK_USE_CLAIM
 	help
 	  Enable driving SPI via PIO on the PICO
+
+if SPI_RPI_PICO_PIO
+
+config SPI_RPI_PICO_PIO_HALF_DUPLEX
+	bool "PIO half-duplex support"
+	help
+	  Enable half-duplex (3-wire) operation.
+
+config SPI_RPI_PICO_PIO_8_BIT
+	bool "PIO 8-bit support"
+	default y
+	help
+	  Enable any addtional code needed to
+	  support 8-bit transfers.
+
+config SPI_RPI_PICO_PIO_16_BIT
+	bool "PIO 16-bit support"
+	help
+	  Enable any addtional code needed to
+	  support 16-bit transfers.
+
+config SPI_RPI_PICO_PIO_32_BIT
+	bool "PIO 32-bit support"
+	help
+	  Enable any addtional code needed to
+	  support 32-bit transfers.
+
+endif
