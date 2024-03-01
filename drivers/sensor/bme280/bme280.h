@@ -42,8 +42,9 @@ struct bme280_bus_io {
 };
 
 #if BME280_BUS_SPI
-#define BME280_SPI_OPERATION (SPI_WORD_SET(8) | SPI_TRANSFER_MSB |	\
-			      SPI_MODE_CPOL | SPI_MODE_CPHA)
+// #define BME280_SPI_OPERATION (SPI_WORD_SET(8) | SPI_TRANSFER_MSB |	\
+// 			      SPI_MODE_CPOL | SPI_MODE_CPHA)
+#define BME280_SPI_OPERATION (SPI_WORD_SET(8) | SPI_TRANSFER_MSB | SPI_HALF_DUPLEX)
 extern const struct bme280_bus_io bme280_bus_io_spi;
 #endif
 
@@ -70,6 +71,7 @@ extern const struct bme280_bus_io bme280_bus_io_i2c;
 #define BME280_MODE_FORCED              0x01
 #define BME280_MODE_NORMAL              0x03
 #define BME280_SPI_3W_DISABLE           0x00
+#define BME280_SPI_3W_ENABLE            0x01
 #define BME280_CMD_SOFT_RESET           0xB6
 #define BME280_STATUS_MEASURING         0x08
 #define BME280_STATUS_IM_UPDATE         0x01
@@ -151,7 +153,7 @@ extern const struct bme280_bus_io bme280_bus_io_i2c;
 					 BME280_MODE)
 #define BME280_CONFIG_VAL               (BME280_STANDBY | \
 					 BME280_FILTER |  \
-					 BME280_SPI_3W_DISABLE)
+					 BME280_SPI_3W_ENABLE)
 
 
 #define BME280_CTRL_MEAS_OFF_VAL	(BME280_PRESS_OVER | \

@@ -333,6 +333,18 @@ static int bme280_chip_init(const struct device *dev)
 		return err;
 	}
 
+	err = bme280_reg_write(dev, BME280_REG_RESET, BME280_CMD_SOFT_RESET);
+	if (err < 0) {
+		LOG_DBG("Soft-reset failed: %d", err);
+	}
+
+	err = bme280_reg_write(dev, BME280_REG_CONFIG,
+			       BME280_CONFIG_VAL);
+	if (err < 0) {
+		LOG_DBG("CONFIG write failed: %d", err);
+		return err;
+	}
+
 	err = bme280_reg_read(dev, BME280_REG_ID, &data->chip_id, 1);
 	if (err < 0) {
 		LOG_DBG("ID read failed: %d", err);
@@ -347,11 +359,6 @@ static int bme280_chip_init(const struct device *dev)
 	} else {
 		LOG_DBG("bad chip id 0x%x", data->chip_id);
 		return -ENOTSUP;
-	}
-
-	err = bme280_reg_write(dev, BME280_REG_RESET, BME280_CMD_SOFT_RESET);
-	if (err < 0) {
-		LOG_DBG("Soft-reset failed: %d", err);
 	}
 
 	err = bme280_wait_until_ready(dev);
@@ -377,13 +384,6 @@ static int bme280_chip_init(const struct device *dev)
 			       BME280_CTRL_MEAS_VAL);
 	if (err < 0) {
 		LOG_DBG("CTRL_MEAS write failed: %d", err);
-		return err;
-	}
-
-	err = bme280_reg_write(dev, BME280_REG_CONFIG,
-			       BME280_CONFIG_VAL);
-	if (err < 0) {
-		LOG_DBG("CONFIG write failed: %d", err);
 		return err;
 	}
 	/* Wait for the sensor to be ready */
