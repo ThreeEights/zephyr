@@ -12,6 +12,7 @@ LOG_MODULE_REGISTER(spi_pico_pio);
 
 #include <zephyr/sys/util.h>
 #include <zephyr/sys/sys_io.h>
+#include <zephyr/sys/byteorder.h>
 #include <zephyr/drivers/clock_control.h>
 #include <zephyr/drivers/spi.h>
 #include <zephyr/drivers/pinctrl.h>
@@ -496,8 +497,8 @@ static void spi_pico_pio_txrx_4_wire(const struct device *dev)
 {
 	struct spi_pico_pio_data *data = dev->data;
 	const size_t chunk_len = spi_context_max_continuous_chunk(&data->spi_ctx);
-	const void *txbuf = data->spi_ctx.tx_buf;
-	void *rxbuf = data->spi_ctx.rx_buf;
+	const uint8_t *txbuf = data->spi_ctx.tx_buf;
+	uint8_t *rxbuf = data->spi_ctx.rx_buf;
 	uint32_t txrx;
 	size_t fifo_cnt = 0;
 
@@ -516,18 +517,16 @@ static void spi_pico_pio_txrx_4_wire(const struct device *dev)
 			switch (data->dfs) {
 			case 4: {
 				if (txbuf) {
-					txrx = ((uint32_t *)txbuf)[data->tx_count];
+					txrx = sys_get_be32(txbuf + (data->tx_count * 4));
 				}
 				spi_pico_pio_sm_put32(data->pio, data->pio_sm, txrx);
-				data->tx_count += 4;
 			} break;
 
 			case 2: {
 				if (txbuf) {
-					txrx = ((uint16_t *)txbuf)[data->tx_count];
+					txrx = sys_get_be16(txbuf + (data->tx_count * 2));
 				}
 				spi_pico_pio_sm_put16(data->pio, data->pio_sm, txrx);
-				data->tx_count += 2;
 			} break;
 
 			case 1: {
@@ -535,13 +534,13 @@ static void spi_pico_pio_txrx_4_wire(const struct device *dev)
 					txrx = ((uint8_t *)txbuf)[data->tx_count];
 				}
 				spi_pico_pio_sm_put8(data->pio, data->pio_sm, txrx);
-				data->tx_count++;
 			} break;
 
 			default:
 				LOG_ERR("Support fot %d bits not enabled", (data->dfs * 8));
 				break;
 			}
+			data->tx_count++;
 			fifo_cnt++;
 		}
 
@@ -553,9 +552,8 @@ static void spi_pico_pio_txrx_4_wire(const struct device *dev)
 
 				/* Discard received data if rx buffer not assigned */
 				if (rxbuf) {
-					((uint32_t *)rxbuf)[data->rx_count] = (uint32_t)txrx;
+					sys_put_be32(txrx, rxbuf + (data->rx_count * 4));
 				}
-				data->rx_count += 4;
 			} break;
 
 			case 2: {
@@ -563,9 +561,8 @@ static void spi_pico_pio_txrx_4_wire(const struct device *dev)
 
 				/* Discard received data if rx buffer not assigned */
 				if (rxbuf) {
-					((uint16_t *)rxbuf)[data->rx_count] = (uint16_t)txrx;
+					sys_put_be16(txrx, rxbuf + (data->rx_count * 2));
 				}
-				data->rx_count += 2;
 			} break;
 
 			case 1: {
@@ -575,13 +572,13 @@ static void spi_pico_pio_txrx_4_wire(const struct device *dev)
 				if (rxbuf) {
 					((uint8_t *)rxbuf)[data->rx_count] = (uint8_t)txrx;
 				}
-				data->rx_count++;
 			} break;
 
 			default:
 				LOG_ERR("Support fot %d bits not enabled", (data->dfs * 8));
 				break;
 			}
+			data->rx_count++;
 			fifo_cnt--;
 		}
 	}
@@ -592,8 +589,8 @@ static void spi_pico_pio_txrx_3_wire(const struct device *dev)
 #if SPI_RPI_PICO_PIO_HALF_DUPLEX_ENABLED
 	struct spi_pico_pio_data *data = dev->data;
 	const struct spi_pico_pio_config *dev_cfg = dev->config;
-	const void *txbuf = data->spi_ctx.tx_buf;
-	void *rxbuf = data->spi_ctx.rx_buf;
+	const uint8_t *txbuf = data->spi_ctx.tx_buf;
+	uint8_t *rxbuf = data->spi_ctx.rx_buf;
 	uint32_t txrx;
 	int sio_pin = dev_cfg->sio_gpio.pin;
 	uint32_t tx_size = data->spi_ctx.tx_len; /* Number of WORDS to send */
@@ -622,27 +619,25 @@ static void spi_pico_pio_txrx_3_wire(const struct device *dev)
 
 				switch (data->dfs) {
 				case 4: {
-					txrx = ((uint32_t *)txbuf)[data->tx_count];
+					txrx = sys_get_be32(txbuf + (data->tx_count * 4));
 					spi_pico_pio_sm_put32(data->pio, data->pio_sm, txrx);
-					data->tx_count += 4;
 				} break;
 
 				case 2: {
-					txrx = ((uint16_t *)txbuf)[data->tx_count];
+					txrx = sys_get_be16(txbuf + (data->tx_count * 2));
 					spi_pico_pio_sm_put16(data->pio, data->pio_sm, txrx);
-					data->tx_count += 2;
 				} break;
 
 				case 1: {
 					txrx = ((uint8_t *)txbuf)[data->tx_count];
 					spi_pico_pio_sm_put8(data->pio, data->pio_sm, txrx);
-					data->tx_count++;
 				} break;
 
 				default:
 					LOG_ERR("Support fot %d bits not enabled", (data->dfs * 8));
 					break;
 				}
+				data->tx_count++;
 			}
 		}
 		while ((!pio_sm_is_tx_fifo_empty(data->pio, data->pio_sm)) ||
@@ -671,26 +666,24 @@ static void spi_pico_pio_txrx_3_wire(const struct device *dev)
 				switch (data->dfs) {
 				case 4: {
 					txrx = spi_pico_pio_sm_get32(data->pio, data->pio_sm);
-					((uint32_t *)rxbuf)[data->rx_count] = (uint32_t)txrx;
-					data->rx_count += 4;
+					sys_put_be32(txrx, rxbuf + (data->rx_count * 4));
 				} break;
 
 				case 2: {
 					txrx = spi_pico_pio_sm_get16(data->pio, data->pio_sm);
-					((uint16_t *)rxbuf)[data->rx_count] = (uint16_t)txrx;
-					data->rx_count += 2;
+					sys_put_be16(txrx, rxbuf + (data->rx_count * 2));
 				} break;
 
 				case 1: {
 					txrx = spi_pico_pio_sm_get8(data->pio, data->pio_sm);
-					((uint8_t *)rxbuf)[data->rx_count] = (uint8_t)txrx;
-					data->rx_count++;
+					rxbuf[data->rx_count] = (uint8_t)txrx;
 				} break;
 
 				default:
 					LOG_ERR("Support fot %d bits not enabled", (data->dfs * 8));
 					break;
 				}
+				data->rx_count++;
 			}
 		}
 	}
