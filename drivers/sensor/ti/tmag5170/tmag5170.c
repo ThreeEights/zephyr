@@ -42,6 +42,34 @@
 #define TMAG5170_REG_ANGLE_RESULT	0x13U
 #define TMAG5170_REG_MAGNITUDE_RESULT	0x14U
 
+#define TMAG5170_ERROR_STAT_POS			7U
+#define TMAG5170_ERROR_STAT_MASK		(BIT_MASK(1U) << TMAG5170_ERROR_STAT_POS)
+#define TMAG5170_ERROR_STAT_GET(value)	(((value) & TMAG5170_ERROR_STAT_MASK) >>\
+					TMAG5170_ERROR_STAT_POS)
+
+#define TMAG5170_RESP_STAT_HIGH_POS		24U
+#define TMAG5170_RESP_STAT_HIGH_MASK	(BIT_MASK(8U) << TMAG5170_RESP_STAT_HIGH_POS)
+#define TMAG5170_RESP_STAT_LOW_POS		4U
+#define TMAG5170_RESP_STAT_LOW_MASK	(BIT_MASK(4U) << TMAG5170_RESP_STAT_LOW_POS)
+#define TMAG5170_RESP_STAT_GET(value)	((((value) & TMAG5170_RESP_STAT_HIGH_MASK) >>\
+					20U) | (((value) & TMAG5170_RESP_STAT_LOW_MASK) >>\
+					TMAG5170_RESP_STAT_LOW_POS))
+
+#define TMAG5170_READ_STAT_ALRT_AFE_POS			8U
+#define TMAG5170_READ_STAT_ALRT_AFE_MASK		(BIT_MASK(1U) << TMAG5170_READ_STAT_ALRT_AFE_POS)
+#define TMAG5170_READ_STAT_ALRT_AFE_GET(value)	(((value) & TMAG5170_READ_STAT_ALRT_AFE_MASK) >>\
+					TMAG5170_READ_STAT_ALRT_AFE_POS)
+
+#define TMAG5170_READ_STAT_ALRT_SYS_POS			9U
+#define TMAG5170_READ_STAT_ALRT_SYS_MASK		(BIT_MASK(1U) << TMAG5170_READ_STAT_ALRT_SYS_POS)
+#define TMAG5170_READ_STAT_ALRT_SYS_GET(value)	(((value) & TMAG5170_READ_STAT_ALRT_SYS_MASK) >>\
+					TMAG5170_READ_STAT_ALRT_SYS_POS)
+
+#define TMAG5170_READ_STAT_ERROR_POS			3U
+#define TMAG5170_READ_STAT_ERROR_MASK		(BIT_MASK(1U) << TMAG5170_READ_STAT_ERROR_POS)
+#define TMAG5170_READ_STAT_ERROR_GET(value)	(((value) & TMAG5170_READ_STAT_ERROR_MASK) >>\
+					TMAG5170_READ_STAT_ERROR_POS)
+
 #define TMAG5170_CONV_AVG_POS		12U
 #define TMAG5170_CONV_AVG_MASK		(BIT_MASK(3U) << TMAG5170_CONV_AVG_POS)
 #define TMAG5170_CONV_AVG_SET(value)	(((value) << TMAG5170_CONV_AVG_POS) &\
@@ -173,7 +201,23 @@ static int tmag5170_transmit(const struct device *dev, uint8_t *buffer_tx, uint8
 
 	TMAG5170_SET_CRC(buffer_tx, crc);
 #endif
+	// DEBUG
+	if (buffer_tx) {
+		printf("tmag5170_transmit - sending 0x%02X 0x%02X 0x%02X 0x%02X\n",
+			buffer_tx[0], buffer_tx[1], buffer_tx[2], buffer_tx[3]);
+	} else {
+		printf("tmag5170_transmit - buffer_tx=NULL\n");
+	}
+	// DEBUG END
 	int ret = tmag5170_transmit_raw(dev->config, buffer_tx, buffer_rx);
+	// DEBUG
+	if (buffer_rx) {
+		printf("tmag5170_transmit - received 0x%02X 0x%02X 0x%02X 0x%02X\n",
+			buffer_rx[0], buffer_rx[1], buffer_rx[2], buffer_rx[3]);
+	} else {
+		printf("tmag5170_transmit - buffer_rx=NULL\n");
+	}
+	// DEBUG END
 #if defined(CONFIG_TMAG5170_CRC)
 	if (buffer_rx != NULL && ret == 0) {
 		uint8_t read_crc = TMAG5170_GET_CRC(buffer_rx);
@@ -181,6 +225,7 @@ static int tmag5170_transmit(const struct device *dev, uint8_t *buffer_tx, uint8
 		TMAG5170_ZERO_CRC(buffer_rx);
 		crc = crc4_ti(TMAG5170_CRC_SEED, buffer_rx, TMAG5170_SPI_BUFFER_LEN);
 		if (read_crc != crc) {
+			printf(">>> CRC error <<<\n");
 			return -EIO;
 		}
 	}
@@ -196,6 +241,33 @@ static int tmag5170_write_register(const struct device *dev, uint32_t reg, uint1
 	return tmag5170_transmit(dev, buffer_tx, NULL);
 }
 
+static int tmag5170_read_status_register(const struct device *dev,
+				  uint32_t reg,
+				  uint16_t *output)
+{
+	uint8_t buffer_tx[4] = { BIT(7) | reg, 0x00U, 0x00U, 0x00U };
+	uint8_t buffer_rx[4] = { 0x00U };
+
+	int ret = tmag5170_transmit(dev, buffer_tx, buffer_rx);
+
+	*output = (buffer_rx[1] << 8) | buffer_rx[2];
+
+	return ret;
+}
+
+static void tmag5170_analyze_error(const struct device *dev, uint16_t resp_stat) {
+	if (TMAG5170_READ_STAT_ALRT_AFE_GET(resp_stat)) {
+		uint16_t afe_stat;
+		tmag5170_read_status_register(dev, TMAG5170_REG_AFE_STATUS, &afe_stat);
+		printf("  AFE_STAT:  0x%04X\n", afe_stat);
+	}
+	if (TMAG5170_READ_STAT_ALRT_SYS_GET(resp_stat)) {
+		uint16_t sys_stat;
+		tmag5170_read_status_register(dev, TMAG5170_REG_SYS_STATUS, &sys_stat);
+		printf("  SYS_STAT:  0x%04X\n", sys_stat);
+	}
+}
+
 static int tmag5170_read_register(const struct device *dev,
 				  uint32_t reg,
 				  uint16_t *output,
@@ -206,6 +278,10 @@ static int tmag5170_read_register(const struct device *dev,
 
 	int ret = tmag5170_transmit(dev, buffer_tx, buffer_rx);
 
+	if (TMAG5170_ERROR_STAT_GET(sys_get_be32(buffer_rx))) {
+		printf("  Response status flags=0x%04lX\n", TMAG5170_RESP_STAT_GET(sys_get_be32(buffer_rx)));
+		tmag5170_analyze_error(dev, TMAG5170_RESP_STAT_GET(sys_get_be32(buffer_rx)));
+	}
 	*output = (buffer_rx[1] << 8) | buffer_rx[2];
 
 	return ret;
@@ -281,6 +357,7 @@ static int tmag5170_sample_fetch(const struct device *dev,
 {
 	const struct tmag5170_dev_config *cfg = dev->config;
 	struct tmag5170_data *drv_data = dev->data;
+	uint16_t conv_status;
 	int ret = 0;
 
 	if (cfg->operating_mode == TMAG5170_STAND_BY_MODE ||
@@ -297,6 +374,13 @@ static int tmag5170_sample_fetch(const struct device *dev,
 		 */
 		k_sleep(K_MSEC(5U));
 	}
+
+	tmag5170_read_register(dev,
+					TMAG5170_REG_CONV_STATUS,
+					&conv_status,
+					0U);
+
+	printf("-> conv_status=0x%04X\n", conv_status);
 
 	switch (chan) {
 	case SENSOR_CHAN_MAGN_X:
@@ -445,6 +529,7 @@ static int tmag5170_init_registers(const struct device *dev)
 	const struct tmag5170_dev_config *cfg = dev->config;
 	struct tmag5170_data *drv_data = dev->data;
 	uint16_t test_cfg_reg = 0U;
+	uint16_t afe_status_reg = 0U;
 	int ret = 0;
 
 #if !defined(CONFIG_TMAG5170_CRC)
@@ -452,13 +537,23 @@ static int tmag5170_init_registers(const struct device *dev)
 
 	ret = tmag5170_transmit_raw(cfg, disable_crc_packet, NULL);
 #endif
+	// DEBUG
+	printf("tmag5170_init_registers() - read test config\n");
+	// DEBUG END
 	if (ret == 0) {
 		ret = tmag5170_read_register(dev, TMAG5170_REG_TEST_CONFIG, &test_cfg_reg, 0U);
+		// DEBUG
+		printf("  ret=%d, test config=0x%08X\n", ret, test_cfg_reg);
+		// DEBUG END
 	}
 
 	if (ret == 0) {
 		drv_data->chip_revision = TMAG5170_VER_GET(test_cfg_reg);
 
+		// DEBUG
+		printf("tmag5170_init_registers() - chip_revision=%d\n", drv_data->chip_revision);
+		printf("tmag5170_init_registers() - write sensor config\n");
+		// DEBUG END
 		ret = tmag5170_write_register(dev,
 				TMAG5170_REG_SENSOR_CONFIG,
 				TMAG5170_ANGLE_EN_SET(cfg->angle_measurement) |
@@ -477,6 +572,9 @@ static int tmag5170_init_registers(const struct device *dev)
 	}
 #endif
 	if (ret == 0) {
+		// DEBUG
+		printf("tmag5170_init_registers() - write device config\n");
+		// DEBUG END
 		ret = tmag5170_write_register(dev,
 				TMAG5170_REG_DEVICE_CONFIG,
 				TMAG5170_OPERATING_MODE_SET(cfg->operating_mode) |
@@ -486,6 +584,10 @@ static int tmag5170_init_registers(const struct device *dev)
 				TMAG5170_T_RATE_SET(cfg->disable_temperature_oversampling));
 	}
 
+	if (ret == 0) {
+		ret = tmag5170_read_register(dev, TMAG5170_REG_AFE_STATUS, &afe_status_reg, 0U);
+		printf("** afe_status_reg=0x%04X\n", afe_status_reg);
+	}
 	return ret;
 }
 
@@ -535,6 +637,9 @@ static int tmag5170_init(const struct device *dev)
 		return -ENODEV;
 	}
 
+	// DEBUG
+	printf("tmag5170_init() - init registers\n");
+	// DEBUG END
 	ret = tmag5170_init_registers(dev);
 	if (ret != 0) {
 		return ret;
