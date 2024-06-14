@@ -49,7 +49,11 @@ zephyr_library_sources(${hal_wifi_dir}/WiFi_Host_Driver/src/whd_wifi_p2p.c)
 # src/bus_protocols
 zephyr_library_sources(${hal_wifi_dir}/WiFi_Host_Driver/src/bus_protocols/whd_bus.c)
 zephyr_library_sources(${hal_wifi_dir}/WiFi_Host_Driver/src/bus_protocols/whd_bus_common.c)
-zephyr_library_sources(${hal_wifi_dir}/WiFi_Host_Driver/src/bus_protocols/whd_bus_sdio_protocol.c)
+if(CONFIG_AIROC_WIFI_BUS_SPI)
+  zephyr_library_sources(${hal_wifi_dir}/WiFi_Host_Driver/src/bus_protocols/whd_bus_spi_protocol.c)
+else()
+  zephyr_library_sources(${hal_wifi_dir}/WiFi_Host_Driver/src/bus_protocols/whd_bus_sdio_protocol.c)
+endif()
 
 # resources/resource_imp
 zephyr_library_sources(${hal_wifi_dir}/WiFi_Host_Driver/resources/resource_imp/whd_resources.c)

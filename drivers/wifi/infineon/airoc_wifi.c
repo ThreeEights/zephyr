@@ -13,7 +13,8 @@
 
 #include <zephyr/logging/log.h>
 #include <zephyr/net/conn_mgr/connectivity_wifi_mgmt.h>
-#include <airoc_wifi.h>
+#include "airoc_wifi.h"
+#include "airoc_whd_hal_common.h"
 
 LOG_MODULE_REGISTER(infineon_airoc_wifi, CONFIG_WIFI_LOG_LEVEL);
 
@@ -77,7 +78,11 @@ static void airoc_event_task(void);
 static struct airoc_wifi_data airoc_wifi_data = {0};
 
 static struct airoc_wifi_config airoc_wifi_config = {
-	.sdhc_dev = DEVICE_DT_GET(DT_INST_PARENT(0)),
+#if defined(CONFIG_AIROC_WIFI_BUS_SDIO)
+	.bus_dev.bus_sdio = DEVICE_DT_GET(DT_INST_PARENT(0)),
+#elif defined(CONFIG_AIROC_WIFI_BUS_SPI)
+	.bus_dev.bus_spi = SPI_DT_SPEC_GET(DT_DRV_INST(0), AIROC_WIFI_SPI_OPERATION, 0),
+#endif
 	.wifi_reg_on_gpio = GPIO_DT_SPEC_GET_OR(DT_DRV_INST(0), wifi_reg_on_gpios, {0}),
 	.wifi_host_wake_gpio = GPIO_DT_SPEC_GET_OR(DT_DRV_INST(0), wifi_host_wake_gpios, {0}),
 	.wifi_dev_wake_gpio = GPIO_DT_SPEC_GET_OR(DT_DRV_INST(0), wifi_dev_wake_gpios, {0}),
@@ -223,19 +228,20 @@ static whd_result_t airoc_wifi_host_buffer_get(whd_buffer_t *buffer, whd_buffer_
 	if (buf == NULL) {
 		return WHD_BUFFER_ALLOC_FAIL;
 	}
+	net_buf_add(buf, size);  // Set initial len based on what was requested.
 	*buffer = buf;
 	return WHD_SUCCESS;
 }
 
 static void airoc_wifi_buffer_release(whd_buffer_t buffer, whd_buffer_dir_t direction)
 {
-	CY_UNUSED_PARAMETER(direction);
+	ARG_UNUSED(direction);
 	(void)net_buf_destroy((struct net_buf *)buffer);
 }
 
 static uint8_t *airoc_wifi_buffer_get_current_piece_data_pointer(whd_buffer_t buffer)
 {
-	CY_ASSERT(buffer != NULL);
+	__ASSERT(buffer != NULL, "buffer should not be null");
 	struct net_buf *buf = (struct net_buf *)buffer;
 
 	return (uint8_t *)buf->data;
@@ -243,33 +249,37 @@ static uint8_t *airoc_wifi_buffer_get_current_piece_data_pointer(whd_buffer_t bu
 
 static uint16_t airoc_wifi_buffer_get_current_piece_size(whd_buffer_t buffer)
 {
-	CY_ASSERT(buffer != NULL);
+	__ASSERT(buffer != NULL, "buffer should not be null");
 	struct net_buf *buf = (struct net_buf *)buffer;
 
-	return (uint16_t)buf->size;
+	return (uint16_t)buf->len;
 }
 
 static whd_result_t airoc_wifi_buffer_set_size(whd_buffer_t buffer, unsigned short size)
 {
-	CY_ASSERT(buffer != NULL);
+	__ASSERT(buffer != NULL, "buffer should not be null");
 	struct net_buf *buf = (struct net_buf *)buffer;
 
-	buf->size = size;
+	size_t delta = buf->len - size;
+	if (delta < 0) {
+		net_buf_remove_mem(buf, -delta);
+	} else if (delta > 0) {
+		net_buf_add(buf, delta);
+	}
+
 	return CY_RSLT_SUCCESS;
 }
 
 static whd_result_t airoc_wifi_buffer_add_remove_at_front(whd_buffer_t *buffer,
 							  int32_t add_remove_amount)
 {
-	CY_ASSERT(buffer != NULL);
-	struct net_buf **buf = (struct net_buf **)buffer;
+	__ASSERT(buffer != NULL, "buffer should not be null");
+	struct net_buf *buf = (struct net_buf *)*buffer;
 
 	if (add_remove_amount > 0) {
-		(*buf)->len = (*buf)->size;
-		(*buf)->data = net_buf_pull(*buf, add_remove_amount);
+		net_buf_pull(buf, add_remove_amount);
 	} else {
-		(*buf)->data = net_buf_push(*buf, -add_remove_amount);
-		(*buf)->len = (*buf)->size;
+		net_buf_push(buf, -add_remove_amount);
 	}
 	return WHD_SUCCESS;
 }

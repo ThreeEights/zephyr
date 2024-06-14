@@ -1,0 +1,32 @@
+description: |
+  AIROC Wi-Fi Connectivity over SPI.
+
+compatible: "infineon,airoc-wifi"
+
+include: [spi-device.yaml, "infineon,airoc-wifi-common.yaml"]
+
+properties: 
+  wifi-host-wake-gpios:
+    required: true
+    description: |
+      Host wake-up gpio. Signal from the AIROC Wi-Fi device
+      to the host indicating that the device requires attention.
+    type: phandle-array
+
+  spi-half-duplex:
+    description:
+      Use half-duplex communication;  if not present, full-
+      duplex operation is assumed.
+    type: boolean
+
+  spi-word-size:
+    description:
+      SPI word size in bits.
+    type: int
+    enum:
+      - 8
+      - 16
+      - 32
+    default: 8
+
+
