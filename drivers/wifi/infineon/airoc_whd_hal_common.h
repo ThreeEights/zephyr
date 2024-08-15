@@ -25,10 +25,6 @@
 #endif
 #endif
 
-#if defined(CONFIG_AIROC_WIFI_COUNTRY) && !defined(CY_WIFI_COUNTRY)
-#define CY_WIFI_COUNTRY (AIROC_MAP_COUNTRY_CODE(CONFIG_AIROC_WIFI_COUNTRY))
-#endif
-
 /** Defines the country this will operate in for wifi initialization parameters. See the
  *  wifi-host-driver's whd_country_code_t for legal options.
  */

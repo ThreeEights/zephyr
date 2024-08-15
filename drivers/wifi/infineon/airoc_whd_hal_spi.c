@@ -1,6 +1,5 @@
 /*
- * Copyright (c) 2023 Cypress Semiconductor Corporation (an Infineon company) or
- * an affiliate of Cypress Semiconductor Corporation
+ * Copyright (c) 2024 Stephen Boylan (stephen.boylan@beechwoods.com)
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -19,7 +18,6 @@ LOG_MODULE_DECLARE(infineon_airoc_wifi, CONFIG_WIFI_LOG_LEVEL);
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 
 struct whd_bus_priv {
 	whd_spi_config_t spi_config;
@@ -93,8 +91,11 @@ int airoc_wifi_init_primary(const struct device *dev, whd_interface_t *interface
 	whd_spi_config.oob_config = oob_config;
 #endif
 
+    /* Pull data line low before enabling WiFi chip */
+    gpio_pin_configure_dt(&dev_cfg->sio_gpio, GPIO_OUTPUT_INACTIVE);
+
 	if (airoc_wifi_power_on(dev)) {
-		LOG_ERR("airoc_wifi_power_on retuens fail");
+		LOG_ERR("airoc_wifi_power_on returns fail");
 		return -ENODEV;
 	}
 
@@ -180,20 +181,11 @@ whd_result_t whd_bus_spi_transfer(whd_driver_t whd_driver, const uint8_t *tx, si
 		rx_buf[1].len = rx_length;
 	}
 
-	// DEBUG
-//	printf("whd_bus_spi_transfer(tx=%p, tx_length=%d, rx=%p, rx_length=%d)\n", tx, tx_length, rx, rx_length);
-//	printf("    sending=0x%08X\n", *((uint32_t *)tx));
-	// DEBUG END
-
 	ret = spi_transceive_dt(spi_obj, &tx_set, &rx_set);
 	if (ret) {
 		LOG_DBG("spi_transceive FAIL %d\n", ret);
 		whd_ret = WHD_WLAN_SDIO_ERROR;
 	}
-
-	// DEBUG
-//	printf("    returned=0x%08X\n", *((uint32_t *)rx));
-	// DEBUG END
 
 	whd_irq_enable(whd_driver, old_state);
 	return whd_ret;
@@ -205,10 +197,6 @@ whd_result_t whd_bus_spi_transfer(whd_driver_t whd_driver, const uint8_t *tx, si
 
 whd_result_t whd_bus_spi_irq_register(whd_driver_t whd_driver)
 {
-	// DEBUG
-//	printf("whd_bus_spi_irq_register() called\n");
-	// DEBUG END
-
 	/* Nothing to do here, all handles by whd_bus_spi_irq_enable function */
 	return WHD_SUCCESS;
 }
