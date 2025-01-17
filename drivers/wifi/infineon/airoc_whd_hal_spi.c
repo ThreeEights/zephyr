@@ -23,6 +23,14 @@ struct whd_bus_priv {
 	whd_spi_t spi_obj;
 };
 
+struct gpio_rpi_data {
+	struct gpio_driver_data common;
+	sys_slist_t callbacks;
+	uint32_t int_enabled_mask;
+	uint32_t single_ended_mask;
+	uint32_t open_drain_mask;
+};
+
 static whd_init_config_t init_config_default = {.thread_stack_size = CY_WIFI_THREAD_STACK_SIZE,
 						.thread_stack_start = NULL,
 						.thread_priority =
@@ -175,8 +183,15 @@ void whd_bus_spi_oob_irq_handler(const struct device *port, struct gpio_callback
 	const whd_oob_config_t *oob_config = &data->whd_drv->bus_priv->spi_config.oob_config;
 	const struct gpio_dt_spec *host_oob_pin = oob_config->host_oob_pin;
 
+	// DEBUG
+	printf("=== Interrupt on pin %d\n", host_oob_pin->pin);
+	// DEBUG END
+
 	/* Check OOB state is correct */
 	int expected_event = (oob_config->is_falling_edge == WHD_TRUE) ? 0 : 1;
+	// DEBUG
+	printf("  expected_event=%d, pin state=%d\n", expected_event, gpio_pin_get_dt(host_oob_pin));
+	// DEBUG END
 
 	if (!(pins & BIT(host_oob_pin->pin)) || (gpio_pin_get_dt(host_oob_pin) != expected_event)) {
 		WPRINT_WHD_ERROR(("Unexpected interrupt event %d\n", expected_event));
@@ -184,6 +199,7 @@ void whd_bus_spi_oob_irq_handler(const struct device *port, struct gpio_callback
 	}
 
 	/* Call thread notify to wake up WHD thread */
+	printf("Notify from irq_handler\n");
 	whd_thread_notify_irq(data->whd_drv);
 
 #endif /* DT_INST_NODE_HAS_PROP(0, wifi-host-wake-gpios) */
@@ -218,6 +234,10 @@ whd_result_t whd_bus_spi_irq_register(whd_driver_t whd_driver)
 	/* Initialize/add OOB pin callback */
 	gpio_init_callback(&data->host_oob_pin_cb, whd_bus_spi_oob_irq_handler,
 			   BIT(host_oob_pin->pin));
+
+	printf("irq_register:  whd_bus_spi_oob_irq_handler=%p\n", whd_bus_spi_oob_irq_handler);
+	printf("irq_register:  oob_irq_cb=%p, handler=%p\n", &data->host_oob_pin_cb,
+				data->host_oob_pin_cb.handler);
 
 	ret = gpio_add_callback_dt(host_oob_pin, &data->host_oob_pin_cb);
 	if (ret != 0) {
@@ -258,6 +278,7 @@ whd_result_t whd_bus_spi_irq_enable(whd_driver_t whd_driver, whd_bool_t enable)
 		/* the interrupt was previously asserted, then the thread has already been  */
 		/* notified.                                                                */
 		if (state == expected_event && state != data->prev_irq_state) {
+			printf("Notify from irq_enable\n");
 			whd_thread_notify_irq(whd_driver);
 		}
 	} else {
@@ -279,6 +300,23 @@ whd_result_t whd_bus_spi_irq_enable(whd_driver_t whd_driver, whd_bool_t enable)
 #endif /* defined(SPI_DATA_IRQ_SHARED) */
 
 #endif /* DT_INST_NODE_HAS_PROP(0, wifi_host_wake_gpios) */
+
+	return WHD_SUCCESS;
+}
+
+whd_result_t whd_rtos_list_events(whd_driver_t whd_driver)
+{
+	const whd_oob_config_t *oob_config = &whd_driver->bus_priv->spi_config.oob_config;
+	const struct gpio_dt_spec *host_oob_pin = oob_config->host_oob_pin;
+	struct gpio_rpi_data *data = host_oob_pin->port->data;
+	sys_slist_t *callbacks = &data->callbacks;
+	struct gpio_callback *cb, *tmp;
+
+	printf("Callback list:\n");
+
+	SYS_SLIST_FOR_EACH_CONTAINER_SAFE(callbacks, cb, tmp, node) {
+		printf("  callback=%p, handler=%p\n", cb, cb->handler);
+	}
 
 	return WHD_SUCCESS;
 }
