@@ -18,6 +18,7 @@ supported:
   - pwm
   - flash
   - dma
+  - pio
   - counter
   - clock
   - usbd

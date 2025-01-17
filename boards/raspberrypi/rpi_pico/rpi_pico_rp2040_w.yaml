@@ -21,3 +21,4 @@ supported:
   - pio
   - counter
   - clock
+  - usbd

@@ -23,6 +23,14 @@ struct whd_bus_priv {
 	whd_spi_t spi_obj;
 };
 
+struct gpio_rpi_data {
+	struct gpio_driver_data common;
+	sys_slist_t callbacks;
+	uint32_t int_enabled_mask;
+	uint32_t single_ended_mask;
+	uint32_t open_drain_mask;
+};
+
 static whd_init_config_t init_config_default = {.thread_stack_size = CY_WIFI_THREAD_STACK_SIZE,
 						.thread_stack_start = NULL,
 						.thread_priority =
@@ -177,7 +185,6 @@ void whd_bus_spi_oob_irq_handler(const struct device *port, struct gpio_callback
 
 	/* Check OOB state is correct */
 	int expected_event = (oob_config->is_falling_edge == WHD_TRUE) ? 0 : 1;
-
 	if (!(pins & BIT(host_oob_pin->pin)) || (gpio_pin_get_dt(host_oob_pin) != expected_event)) {
 		WPRINT_WHD_ERROR(("Unexpected interrupt event %d\n", expected_event));
 		return;
