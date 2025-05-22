@@ -143,6 +143,25 @@ As mentioned above, you can run sysbuild via ``west build`` or ``cmake``.
       an extra CMake argument. ``APP_DIR`` is the path to the main Zephyr
       application managed by sysbuild.
 
+      .. tip::
+
+         The environment variables, ``CMAKE_BUILD_PARALLEL_LEVEL`` and ``VERBOSE``, can be used to
+         control the build process when using sysbuild with CMake and ninja.
+
+         To set number of jobs for ninja for all sysbuild images, set the CMAKE_BUILD_PARALLEL_LEVEL
+         environment variable and invoke the build with ``cmake --build``, for example:
+
+         .. code-block:: shell
+
+            CMAKE_BUILD_PARALLEL_LEVEL=<n> cmake --build .
+
+         For verbose output of all images, use:
+
+         .. code-block:: shell
+
+            VERBOSE=1 cmake --build .
+
+
 Configuration namespacing
 *************************
 
@@ -516,7 +535,7 @@ In sysbuild and Zephyr CMake build system a board may refer to:
 
 * A physical board with a single core SoC.
 * A specific core on a physical board with a multi-core SoC, such as
-  :ref:`nrf5340dk_nrf5340`.
+  :zephyr:board:`nrf5340dk`.
 * A specific SoC on a physical board with multiple SoCs, such as
   :ref:`nrf9160dk_nrf9160` and :ref:`nrf9160dk_nrf52840`.
 
