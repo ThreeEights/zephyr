@@ -432,6 +432,12 @@ Networking
   | ``wifi packet_filter`` |                     |                    |
   +------------------------+---------------------+--------------------+
 
+* The :c:type:`http_response_cb_t` HTTP client response callback signature has
+  changed. The callback function now returns ``int`` instead of ``void``. This
+  allows the application to abort the HTTP connection. Existing applications
+  need to update their response callback implementations. To retain current
+  behavior, simply return 0 from the callback.
+
 OpenThread
 ==========
 
@@ -578,6 +584,20 @@ Other subsystems
 
 Modules
 *******
+
+CMSIS
+=====
+
+* Cortex-M boards/socs now require the ``CMSIS_6`` module to build properly (instead of ``cmsis``
+  which was CMSIS 5.9.0).
+  If trying to build a Cortex-M board, do a ``west update`` to make sure that ``CMSIS_6`` module is
+  available before running ``west build`` or other commands.
+
+  Boards or SOCs or modules using the older ``cmsis`` module either with a local copy or via the
+  :kconfig:option:`CONFIG_ZEPHYR_CMSIS_MODULE_DIR` are requested to move to the ``CMSIS_6`` module
+  which can be accessed via the :kconfig:option:`CONFIG_ZEPHYR_CMSIS_6_MODULE_DIR` configuration.
+
+  Note: Zephyr will continue using the older ``cmsis`` module for Cortex-A and Cortex-R targets.
 
 Architectures
 *************

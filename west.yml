@@ -164,7 +164,7 @@ manifest:
       groups:
         - hal
     - name: hal_espressif
-      revision: fa60a7aaa1f834c66413bbaa771794cf8aa82946
+      revision: e3532f053177077647104ae2ef215f0214dc5713
       path: modules/hal/espressif
       west-commands: west/west-commands.yml
       groups:
@@ -205,7 +205,7 @@ manifest:
       groups:
         - hal
     - name: hal_nxp
-      revision: fa2b503de28020a5c679920a4c0263920d161b2f
+      revision: 6a316c1bf7b381845ae8af64208906f6ec332eab
       path: modules/hal/nxp
       groups:
         - hal
@@ -240,7 +240,7 @@ manifest:
       groups:
         - hal
     - name: hal_stm32
-      revision: 02d82ee3aa0daa29ab6f107f9969508b89bc6bf7
+      revision: 5cbc642b1a79d4f373b1587f8c3027f31bf0d30c
       path: modules/hal/stm32
       groups:
         - hal
@@ -260,7 +260,7 @@ manifest:
       groups:
         - hal
     - name: hal_wch
-      revision: 1de9d3e406726702ce7cfc504509a02ecc463554
+      revision: 941f5182b5577d168e0cbcc0c9dd26294c1806a5
       path: modules/hal/wch
       groups:
         - hal
@@ -323,7 +323,7 @@ manifest:
       revision: c6296f600a6851bd652f207ab4908d339e1ce705
       path: modules/bsim_hw_models/nrf_hw_models
     - name: nrf_wifi
-      revision: e0adc318539934e575b2f777b482b5536dbeb429
+      revision: 5e185a2b33b4f5b9524999a5bfd96121d25ffdbc
       path: modules/lib/nrf_wifi
     - name: open-amp
       revision: f7f4d083c7909a39d86e217376c69b416ec4faf3
